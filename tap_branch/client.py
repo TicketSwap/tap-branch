@@ -37,7 +37,12 @@ class BranchExportStream(Stream):
         end = datetime.now().astimezone(start.tzinfo).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
         while start <= end:
             self.logger.info("Syncing %s for %s", self.name, start)
-            for url in self._get_export_urls(start):
+            urls = self._get_export_urls(start)
+            total = len(urls)
+            for i, url in enumerate(urls, start=1):
+                self.logger.info(
+                    "Downloading CSV file %d/%d for %s on %s", i, total, self.name, start.date()
+                )
                 yield from self._parse_csv(url, start)
             start += timedelta(days=1)
 
