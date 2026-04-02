@@ -26,19 +26,19 @@ class TapBranch(Tap):
 
     config_jsonschema = th.PropertiesList(
         th.Property(
-            "branch_key",
+            "api_key",
             th.StringType(nullable=False),
             required=True,
             secret=True,
-            title="Branch Key",
+            title="Api Key",
             description="The Branch app key (public).",
         ),
         th.Property(
-            "branch_secret",
+            "api_secret",
             th.StringType(nullable=False),
             required=True,
             secret=True,
-            title="Branch Secret",
+            title="Api Secret",
             description="The Branch app secret.",
         ),
         th.Property(

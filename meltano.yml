@@ -18,14 +18,14 @@ plugins:
     - structured-logging
 
     settings:
-    - name: branch_key
+    - name: api_key
       kind: string
-      label: Branch Key
+      label: Api Key
       description: The Branch app key (public).
 
-    - name: branch_secret
+    - name: api_secret
       kind: string
-      label: Branch Secret
+      label: Api Secret
       description: The Branch app secret.
       sensitive: true
 
@@ -35,7 +35,7 @@ plugins:
       description: "Earliest export date to sync (YYYY-MM-DD). Defaults to 30 days ago."
 
     settings_group_validation:
-    - [branch_key, branch_secret]
+    - [api_key, api_secret]
 
     config:
       start_date: "2026-04-01T00:00:00Z"
