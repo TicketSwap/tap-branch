@@ -50,8 +50,8 @@ class BranchExportStream(Stream):
             response = requests.post(
                 EXPORT_URL,
                 json={
-                    "branch_key": self.config["branch_key"],
-                    "branch_secret": self.config["branch_secret"],
+                    "branch_key": self.config["api_key"],
+                    "branch_secret": self.config["api_secret"],
                     "export_date": export_date.strftime("%Y-%m-%d"),
                 },
                 headers={"Accept": "application/json", "Content-Type": "application/json"},
