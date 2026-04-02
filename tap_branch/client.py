@@ -6,7 +6,7 @@ import contextlib
 import csv
 import gzip
 import io
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import requests
@@ -14,6 +14,7 @@ from singer_sdk.streams import Stream
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from datetime import date
 
     from singer_sdk.helpers.types import Context
 
@@ -34,27 +35,34 @@ class BranchExportStream(Stream):
         """Yield records by iterating over each day in the sync range."""
         start = self.get_starting_timestamp(context).replace(hour=0, minute=0, second=0, microsecond=0)
         end = datetime.now().astimezone(start.tzinfo).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
-        self.logger.info(f"Syncing {self.name} from {start} to {end}")
         while start <= end:
             self.logger.info("Syncing %s for %s", self.name, start)
             for url in self._get_export_urls(start):
                 yield from self._parse_csv(url, start)
             start += timedelta(days=1)
 
-    def _get_export_urls(self, export_date: datetime) -> list[str]:
-        response = requests.post(
-            EXPORT_URL,
-            json={
-                "branch_key": self.config["branch_key"],
-                "branch_secret": self.config["branch_secret"],
-                "export_date": export_date.strftime("%Y-%m-%d"),
-            },
-            headers={"Accept": "application/json", "Content-Type": "application/json"},
-            timeout=60,
+    def _fetch_export_urls_for_date(self, export_date: date) -> dict[str, list[str]]:
+        """Fetch all event-type URLs for a given date, with tap-level caching."""
+        cache: dict[date, dict[str, list[str]]] = self._tap.__dict__.setdefault(
+            "_export_url_cache", {}
         )
-        response.raise_for_status()
-        self.logger.info("Received export URLs for %s: %s", export_date, response.json())
-        return response.json().get(self.event_type, [])
+        if export_date not in cache:
+            response = requests.post(
+                EXPORT_URL,
+                json={
+                    "branch_key": self.config["branch_key"],
+                    "branch_secret": self.config["branch_secret"],
+                    "export_date": export_date.strftime("%Y-%m-%d"),
+                },
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+                timeout=60,
+            )
+            response.raise_for_status()
+            cache[export_date] = response.json()
+        return cache[export_date]
+
+    def _get_export_urls(self, export_date: datetime) -> list[str]:
+        return self._fetch_export_urls_for_date(export_date.date()).get(self.event_type, [])
 
     def post_process(self, row: dict, context: Context | None = None) -> dict | None:  # noqa: ARG002
         for key, prop in self.schema.get("properties", {}).items():
