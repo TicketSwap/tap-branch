@@ -29,6 +29,7 @@ class TapBranch(Tap):
             "branch_key",
             th.StringType(nullable=False),
             required=True,
+            secret=True,
             title="Branch Key",
             description="The Branch app key (public).",
         ),
