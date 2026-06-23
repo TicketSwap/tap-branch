@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import requests
+from singer_sdk.helpers._state import increment_state
 from singer_sdk.streams import Stream
 
 if TYPE_CHECKING:
@@ -35,6 +36,7 @@ class BranchExportStream(Stream):
         """Yield records by iterating over each day in the sync range."""
         start = self.get_starting_timestamp(context).replace(hour=0, minute=0, second=0, microsecond=0)
         end = datetime.now().astimezone(start.tzinfo).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
+        last_synced: datetime | None = None
         while start <= end:
             self.logger.info("Syncing %s for %s", self.name, start)
             urls = self._get_export_urls(start)
@@ -44,7 +46,21 @@ class BranchExportStream(Stream):
                     "Downloading CSV file %d/%d for %s on %s", i, total, self.name, start.date()
                 )
                 yield from self._parse_csv(url, start)
+            last_synced = start
             start += timedelta(days=1)
+
+        # Advance the bookmark to the last fully-scanned date even when the
+        # window produced no records. The replication key is otherwise only set
+        # from emitted rows, so streams that return nothing (e.g. eo_impression)
+        # would keep an empty bookmark and re-scan from start_date every run.
+        if last_synced is not None:
+            increment_state(
+                self.get_context_state(context),
+                latest_record={self.replication_key: last_synced},
+                replication_key=self.replication_key,
+                is_sorted=self.is_sorted,
+                check_sorted=False,
+            )
 
     def _fetch_export_urls_for_date(self, export_date: date) -> dict[str, list[str]]:
         """Fetch all event-type URLs for a given date, with tap-level caching."""
